@@ -62,19 +62,22 @@ public class RabbitConsumer {
     // Hideous ArrayList of Maps of objects..... NO!!!!
     private long getRetryCount(AMQP.BasicProperties properties) {
         try {
-            Object x = properties.getHeaders().getOrDefault("x-death", 0);
-            if(x instanceof ArrayList) {
-                ArrayList headerList = (ArrayList) x;
-                if(headerList.size()>0) {
-                    if(headerList.get(0) instanceof Map) {
-                        Map vals = (Map)headerList.get(0);
-                        long count = (long)vals.getOrDefault("count", 0);
-                        return count;
+            Map<String, Object> headers = properties.getHeaders();
+            if(headers !=null) {
+                Object x = headers.getOrDefault("x-death", 0);
+                if (x != null && x instanceof ArrayList) {
+                    ArrayList headerList = (ArrayList) x;
+                    if (headerList.size() > 0) {
+                        if (headerList.get(0) instanceof Map) {
+                            Map vals = (Map) headerList.get(0);
+                            long count = (long) vals.getOrDefault("count", 0);
+                            return count;
+                        }
                     }
                 }
             }
         } catch(Exception e) {
-            System.out.println("Failed to output stuff... " + e.getMessage());
+            System.out.println("Failed to read header value, will default - " + e.getMessage());
         }
         return 0;
     }
@@ -115,7 +118,8 @@ public class RabbitConsumer {
                                         CompletionStage<QueueOfferResult> offerResult = mat.offer(elem);
                                         offerResult.whenComplete((result, e) -> {
                                             if (result instanceof QueueOfferResult.Failure) {
-                                                System.out.println("Oh dear something went wrong offering to the stream....");
+                                                System.out.println("Failed to offer to stream " +
+                                                        ((QueueOfferResult.Failure) result).cause().getMessage());
                                             }
                                         });
                                     }
@@ -144,16 +148,6 @@ public class RabbitConsumer {
 
         }
     }
-
-    private void close() {
-        try {
-            connection.close();
-            system.terminate();
-        } catch(Exception e) {
-            System.out.println("Oh well");
-        }
-    }
-
 
     public static void main(String[] args) {
         RabbitConsumer consumer = new RabbitConsumer();
